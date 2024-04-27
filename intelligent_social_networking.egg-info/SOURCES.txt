@@ -1,0 +1,8 @@
+README.md
+setup.py
+facial_detection/__init__.py
+facial_detection/facial_detection.py
+intelligent_social_networking.egg-info/PKG-INFO
+intelligent_social_networking.egg-info/SOURCES.txt
+intelligent_social_networking.egg-info/dependency_links.txt
+intelligent_social_networking.egg-info/top_level.txt
