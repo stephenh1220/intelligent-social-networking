@@ -43,6 +43,13 @@ class Database:
             )
             vec_index = np.argmax(similarities)
             vec = np.dot(self.compressed_mat[vec_index], np.linalg.pinv(self.projection_matrix))
+        elif self.search_method== "linear":
+            vec, best_distance = None, "inf"
+            for vector in self.table:
+                squared_difference = np.sum((np.array(query_vector) - np.array(vector)) ** 2)
+                distance = np.sqrt(squared_difference)
+                if distance < best_distance:
+                    vec, best_distance = vector, distance
         return self.table[vec]
     
     def __str__(self) -> str:
