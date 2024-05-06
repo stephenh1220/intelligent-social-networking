@@ -57,7 +57,7 @@ class FacialDetection:
         aligned = []
         x_aligned, prob = self.mtcnn(img, return_prob=True)
         if x_aligned is not None:
-            print('Face detected with probability: {:8f}'.format(prob))
+            #print('Face detected with probability: {:8f}'.format(prob))
             aligned.append(x_aligned)
 
         return torch.stack(aligned).to(self.device)
