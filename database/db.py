@@ -1,5 +1,5 @@
 import lshashpy3 as lshash
-import nmslib
+import hnswlib
 import numpy as np
 
 class Database:
@@ -12,11 +12,12 @@ class Database:
         if self.search_method == "lsh": #initialize lsh
             self.lsh = lshash.LSHash(32, self.input_dim)
         elif self.search_method == "hnsw": #initialize hnsw
-            if self.dist_func == "euclidean":
-                self.hnsw = nmslib.init(method='hnsw', space='l2')
+            if self.dist_func == "l2_squared":
+                self.hnsw = hnswlib.Index(space='l2', dim=self.input_dim)
             elif self.dist_func == "cosine":
-                self.hnsw = nmslib.init(method='hnsw', space='cosinesimil')
-            self.hnsw.createIndex({'M': 5, 'efConstruction': 3, 'efSearch': 3})
+                self.hnsw = hnswlib.Index(space='cosine', dim=self.input_dim)
+            self.hnsw.init_index(max_elements=5, ef_construction=3, M=50) 
+            self.hnsw.set_ef(3)
         elif self.search_method == "vector_compression": #initialize vector compression dependencies
             self.projection_mat = np.random.randn(32, self.input_dim)
             self.compressed_mat = None
@@ -26,7 +27,7 @@ class Database:
         if self.search_method == "lsh":
             self.lsh.index(embedding)
         elif self.search_method == "hnsw":
-            self.hnsw.addDataPointBatch(embedding)
+            self.hnsw.add_items(embedding)
         elif self.search_method == "vector_compression":
             compressed_vec = np.dot(self.projection_matrix, embedding.T).T
             if self.compressed_mat is None:
@@ -36,15 +37,18 @@ class Database:
 
     def query_entry(self, query_vector) -> list:
         if self.search_method == "lsh":
-            vec = lshash.query(query_vector, num_results=1, distance_func=self.dist_func)[0][0]
-
+            if self.dist_func == "l2_squared":
+                vec = lshash.query(query_vector, num_results=1, distance_func="euclidean_dist_square")[0][0]
+            elif self.dist_func == "cosine":
+                vec = lshash.query(query_vector, num_results=1, distance_func="cosine")[0][0]
         elif self.search_method == "hnsw":
             vec = self.hnsw.knn_query(query_vector, k=1)[0][0]
 
         elif self.search_method == "vector_compression":
-            projected_query = np.dot(self.projection_matrix, query_vector)
-            if self.dist_func == "euclidean":
-                similarities = np.linalg.norm(self.compressed_mat - projected_query, axis=1) #euclidean
+            # projected_query = np.dot(self.projection_matrix, query_vector)
+            projected_query = np.dot(self.projection_matrix, query_vector.T).T
+            if self.dist_func == "l2_squared":
+                similarities = np.sum((self.compressed_mat - projected_query) ** 2, axis=1)
             elif self.dist_func == "cosine":
                 similarities = np.dot(self.compressed_mat, projected_query) / (
                     np.linalg.norm(self.compressed_mat, axis=1) * np.linalg.norm(projected_query)
@@ -57,9 +61,8 @@ class Database:
             if self.dist_func == "euclidean":     
                 for vector in self.table:
                     squared_difference = np.sum((np.array(query_vector) - np.array(vector)) ** 2)
-                    euclidean_distance = np.sqrt(squared_difference)
-                    if euclidean_distance < best_distance:
-                        vec, best_distance = vector, euclidean_distance
+                    if squared_difference < best_distance:
+                        vec, best_distance = vector, squared_difference
             elif self.dist_func == "cosine":
                 for vector in self.table:
                     dot_product = np.dot(query_vector, vector)
