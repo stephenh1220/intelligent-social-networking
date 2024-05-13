@@ -34,6 +34,7 @@ from PIL import Image
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import torch
 
+
 class FacialDetection:
 
     def __init__(self, visualize=False):
@@ -61,6 +62,18 @@ class FacialDetection:
             aligned.append(x_aligned)
 
         return torch.stack(aligned).to(self.device)
+    
+    def extract_face_box(self, img):
+        boxes,probs =  self.mtcnn.detect(img)
+
+        return boxes[np.argmax(probs)] if boxes is not None else None
+    #  # Detect faces
+    #     batch_boxes, batch_probs, batch_points = self.mtcnn.detect(img, landmarks=True)
+        
+    #     # Extract faces
+    #     faces = self.mtcnn.extract(img, batch_boxes, None)
+
+    #     return faces, batch_boxes
     
     def get_facial_embeddings(self, cropped_imgs: list[torch.Tensor]):
         """

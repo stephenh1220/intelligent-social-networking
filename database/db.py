@@ -1,3 +1,4 @@
+import dis
 import lshashpy3 as lshash
 import hnswlib
 import numpy as np
@@ -46,6 +47,7 @@ class Database:
         elif self.search_method == "hnsw":
             labels, distances = self.hnsw.knn_query(query_vector, k=1)
             vec = self.embedding_list[labels[0][0]]
+            return self.table[vec], distances[0][0]
 
         elif self.search_method == "vector_compression":
             # projected_query = np.dot(self.projection_matrix, query_vector)
