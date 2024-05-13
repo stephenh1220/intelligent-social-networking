@@ -23,6 +23,7 @@ class Database:
         elif self.search_method == "vector_compression": #initialize vector compression dependencies
             self.projection_mat = np.random.randn(32, self.input_dim)
             self.compressed_mat = None
+            self.uncompressed_vecs = None
 
     def add_entry(self, embedding, info):
         self.table[tuple(embedding.tolist())] = info
@@ -34,9 +35,11 @@ class Database:
         elif self.search_method == "vector_compression":
             compressed_vec = np.dot(self.projection_mat, embedding.T).T
             if self.compressed_mat is None:
-                self.compressed_mat = compressed_vec.reshape(1,-1)
+                self.compressed_mat = compressed_vec.reshape(-1,1)
+                self.uncompressed_vecs = embedding
             else:
-                self.compressed_mat = np.concatenate((self.compressed_mat, compressed_vec.reshape(1,-1)), axis=0)
+                self.compressed_mat = np.concatenate((self.compressed_mat, compressed_vec.reshape(-1,1)), axis=1)
+                self.uncompressed_vecs = np.concatenate((self.uncompressed_vecs, embedding))
 
     def query_entry(self, query_vector) -> list:
         if self.search_method == "lsh":
@@ -53,16 +56,16 @@ class Database:
             # projected_query = np.dot(self.projection_matrix, query_vector)
             projected_query = np.dot(self.projection_mat, query_vector.T).T
             if self.dist_func == "l2_squared":
-                similarities = np.sum((self.compressed_mat - projected_query) ** 2, axis=1)
+                distances = np.sum((self.compressed_mat - projected_query.reshape(-1,1)) ** 2, axis=0)
+                vec_index = np.argmin(distances)
             elif self.dist_func == "cosine":
-                similarities = np.dot(self.compressed_mat, projected_query) / (
-                    np.linalg.norm(self.compressed_mat, axis=1) * np.linalg.norm(projected_query)
-                )
-            vec_index = np.argmax(similarities)
-            vec = self.compressed_mat[vec_index].reshape(1,-1)/np.linalg.norm(self.projection_mat)
-            vec = np.linalg.lstsq(self.projection_mat, self.compressed_mat[vec_index].T)[0].T
+                dot_product = np.dot(projected_query, self.compressed_mat)
+                matrix_norm = np.linalg.norm(self.compressed_mat, axis=1)
+                vector_norm = np.linalg.norm(projected_query)
+                similarities = dot_product / (matrix_norm * vector_norm)
+                vec_index = np.argmax(similarities)
+            vec = self.uncompressed_vecs[vec_index]
             vec = tuple(vec.tolist())
-            # vec = tuple(np.dot(self.compressed_mat[vec_index].reshape(1,-1), np.linalg.pinv(self.projection_mat).T)[0].tolist())
 
         elif self.search_method== "linear":
             vec, best_distance = None, np.inf
