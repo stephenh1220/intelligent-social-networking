@@ -4,11 +4,12 @@ import hnswlib
 import numpy as np
 
 class Database:
-    def __init__(self, search_method, dist_func) -> None:
+    def __init__(self, search_method, dist_func, inference = False) -> None:
         self.search_method = search_method
         self.dist_func = dist_func
         self.table = {} #map facial encodings to data arrays
         self.input_dim = 512
+        self.inference = inference
 
         if self.search_method == "lsh": #initialize lsh
             self.lsh = lshash.LSHash(6, self.input_dim, 5)
@@ -35,11 +36,11 @@ class Database:
         elif self.search_method == "vector_compression":
             compressed_vec = np.dot(self.projection_mat, embedding.T).T
             if self.compressed_mat is None:
-                self.compressed_mat = compressed_vec.reshape(-1,1)
-                self.uncompressed_vecs = embedding
+                self.compressed_mat = compressed_vec.reshape(1, -1)
+                self.uncompressed_vecs = embedding.reshape(1, -1)
             else:
-                self.compressed_mat = np.concatenate((self.compressed_mat, compressed_vec.reshape(-1,1)), axis=1)
-                self.uncompressed_vecs = np.concatenate((self.uncompressed_vecs, embedding))
+                self.compressed_mat = np.concatenate((self.compressed_mat, compressed_vec.reshape(1, -1)), axis=0)
+                self.uncompressed_vecs = np.concatenate((self.uncompressed_vecs, embedding.reshape(1, -1)), axis=0)
 
     def query_entry(self, query_vector) -> list:
         if self.search_method == "lsh":
@@ -50,13 +51,14 @@ class Database:
         elif self.search_method == "hnsw":
             labels, distances = self.hnsw.knn_query(query_vector, k=1)
             vec = self.embedding_list[labels[0][0]]
-            return self.table[vec], distances[0][0]
+            if self.inference:
+                return self.table[vec], distances[0][0]
 
         elif self.search_method == "vector_compression":
             # projected_query = np.dot(self.projection_matrix, query_vector)
             projected_query = np.dot(self.projection_mat, query_vector.T).T
             if self.dist_func == "l2_squared":
-                distances = np.sum((self.compressed_mat - projected_query.reshape(-1,1)) ** 2, axis=0)
+                distances = np.sum((self.compressed_mat - projected_query.reshape(1, -1)) ** 2, axis=0)
                 vec_index = np.argmin(distances)
             elif self.dist_func == "cosine":
                 dot_product = np.dot(projected_query, self.compressed_mat)
@@ -64,7 +66,9 @@ class Database:
                 vector_norm = np.linalg.norm(projected_query)
                 similarities = dot_product / (matrix_norm * vector_norm)
                 vec_index = np.argmax(similarities)
+            print(self.compressed_mat.shape, projected_query.shape)
             vec = self.uncompressed_vecs[vec_index]
+            print(vec, self.uncompressed_vecs, self.table)
             vec = tuple(vec.tolist())
 
         elif self.search_method== "linear":
