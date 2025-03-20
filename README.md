@@ -1,6 +1,9 @@
 # intelligent-social-networking
 6.s079 project
 
+## Description for Tubi
+I worked on the facial recognition database portion of this project. The project leverages pre-trained facial models and LLMs into a wearable AR application designed to enhance social interaction. The database stores facial embeddings and optimizes queries using different search methods: Locality-Sensitive Hashing (LSH), Hierarchical Navigable Small World (HNSW), vector compression, and linear search. Each method supports both L2-squared distance or cosine similarity for nearest-neighbor retrieval. LSH hashes embeddings for fast lookups, HNSW builds a graph structure for efficient approximate search, vector compression reduces dimensionality for speed, and linear search iterates through stored embeddings. The code provides the architecture for use to systematically tests these methods to compare their efficiency and accuracy, which we do in the project to optimze the database’s performance.
+
 
 ## Reproduce main results
 Run ```python main.py --phase 1``` to add to the database. This will load the phase 1 video, extract a facial embedding for each frame, average them at the end to get one vector key. It will alos take the transcript and run it through Gemini to get a condensed version which is stored as the value of the embedding key in the database.
