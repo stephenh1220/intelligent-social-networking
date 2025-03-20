@@ -11,9 +11,11 @@ class Database:
         self.input_dim = 512
         self.inference = inference
 
-        if self.search_method == "lsh": #initialize lsh
+        # Locality-senstive hashing method
+        if self.search_method == "lsh": 
             self.lsh = lshash.LSHash(6, self.input_dim, 5)
-        elif self.search_method == "hnsw": #initialize hnsw
+        # Hierarchical Navigable Small World method
+        elif self.search_method == "hnsw":
             self.embedding_list = []
             if self.dist_func == "l2_squared":
                 self.hnsw = hnswlib.Index(space='l2', dim=self.input_dim)
@@ -21,16 +23,27 @@ class Database:
                 self.hnsw = hnswlib.Index(space='cosine', dim=self.input_dim)
             self.hnsw.init_index(max_elements=200, ef_construction=3, M=50) 
             self.hnsw.set_ef(3)
-        elif self.search_method == "vector_compression": #initialize vector compression dependencies
+        # Vector compression method
+        elif self.search_method == "vector_compression": 
+            #initialize vector compression dependencies
             self.projection_mat = np.random.randn(32, self.input_dim)
             self.compressed_mat = None
             self.uncompressed_vecs = None
 
     def add_entry(self, embedding, info):
+        """
+        Adds entry to the database. 
+
+        Parameters:
+        embedding (PyTorch tensor): Embedding generated from facial detection.
+        info (str): Information about person associated with embedding.  
+        """
+
         self.table[tuple(embedding.tolist())] = info
-        if self.search_method == "lsh":
+
+        if self.search_method == "lsh": # locality-sensitive hashing
             self.lsh.index(embedding)
-        elif self.search_method == "hnsw":
+        elif self.search_method == "hnsw": # hierarchical navigable small worlds
             self.hnsw.add_items(embedding)
             self.embedding_list.append(tuple(embedding.tolist()))
         elif self.search_method == "vector_compression":
@@ -43,11 +56,21 @@ class Database:
                 self.uncompressed_vecs = np.concatenate((self.uncompressed_vecs, embedding.reshape(1, -1)), axis=0)
 
     def query_entry(self, query_vector) -> list:
+        """
+        Queries the database and finds most similar entry. 
+
+        Parameters:
+        query_vector ([list]): Vector to query the database fir.
+
+        Returns information associated with entry most similar to
+        the query.
+        """
         if self.search_method == "lsh":
             if self.dist_func == "l2_squared":
                 vec = self.lsh.query(query_vector, num_results=1, distance_func="euclidean")[0][0][0]
             elif self.dist_func == "cosine":
                 vec = self.lsh.query(query_vector, num_results=1, distance_func="cosine")[0][0][0]
+        
         elif self.search_method == "hnsw":
             labels, distances = self.hnsw.knn_query(query_vector, k=1)
             vec = self.embedding_list[labels[0][0]]
@@ -71,6 +94,7 @@ class Database:
             print(vec, self.uncompressed_vecs, self.table)
             vec = tuple(vec.tolist())
 
+        # linear search method, iterate through all entries
         elif self.search_method== "linear":
             vec, best_distance = None, np.inf
             if self.dist_func == "l2_squared":     
